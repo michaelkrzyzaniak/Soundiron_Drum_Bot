@@ -1,0 +1,716 @@
+<!doctype HTML>
+<html>
+  <head>
+    <style>
+       body
+         {
+           margin:0px; 
+           padding:0px; 
+           background-color:#66d;
+         }
+      .page_div
+        {
+           width:650px;
+           background-color:#CCC;
+           padding:10px;
+           margin:40px auto 40px auto;
+           font-family:'Verdana';
+           font-size:9pt;
+           border-radius:6px;
+           box-shadow:5px 5px 30px #222;
+        }
+      .top_buttons_div
+        {
+          margin:auto;
+        }
+      .top_buttons_div .dropdown_div
+        {
+          display:inline-block;
+        }
+      .top_buttons_div .button_div
+        {
+          margin: 10px auto auto auto;
+          font-size:0pt;
+        }
+      .top_buttons_div .button_div .button_container
+        {
+          display:inline-block;
+          width:20%;
+          text-align:center;
+          font-size:9pt;
+        }
+      .top_buttons_div .button_div .button_container button
+        {
+          font:inherit;
+          width:90%;
+        }
+      .log_container_div
+        {
+          margin:auto;
+          padding:10px;
+          font-size:0pt;
+        }
+      .log_container_div .button_div
+        {
+          display:inline-block;
+          width:15%;
+          height:12em;
+          font-size:9pt;
+          vertical-align:top;
+          text-align:right;
+        }
+      .log_container_div .button_div button
+        {
+          width:85%;
+          font-size:9pt;
+        }
+      .log_container_div .log_outer_div
+        {
+          background-color:white;
+          font-size:9pt;
+          color:#888;
+          display:inline-block;
+          width:85%;
+          vertical-align:top;
+        }
+      .log_container_div .log_div
+        {
+          margin:auto;
+          padding:10px;
+          overflow:auto;
+          height:12em;
+        }
+      #log .send_message
+        {
+          color:#888;
+        }
+      #log .receive_message
+        {
+          color:blue;
+        }
+      #log .error_message
+        {
+          color:#800;
+        }
+      .params_div
+        {
+           width:100%;
+           columns: 2 auto;
+           font-size:0px;
+        }
+      .param_container
+        {
+           width:90%;
+           padding:1px 5px 1px 5px;
+        }
+      .param_container div
+        {
+           display:inline-block;
+           vertical-align: middle;
+           margin:0px;
+           padding:0px;
+           font-size:9pt;
+        }
+      .param_container .label_div
+        {
+           width:57%;
+        }
+      .param_container .get_div
+        {
+           width:10%;
+           text-align:center;
+        }
+      .param_container .get_div button
+        {
+
+        }
+      .param_container .value_div
+        {
+          width:33%;
+        }
+      .param_container .value_div input, .param_container .value_div select
+        {
+           font:inherit;
+           width:100%;
+           margin:0px;
+        }
+    </style>
+    <script>
+      var should_log  = false;
+      zap_id      = 0;
+      should_do_now = 1;
+      midi_outputs  = [];
+      
+      function init_page()
+      {
+        populate_zap_ids();
+        //populate_bauds();
+        populate_midi_device_list();
+        populate_all_fields();
+      }
+      
+      function populate_midi_device_list()
+      {
+        navigator.requestMIDIAccess({sysex: true}).then(function(midiAccess)
+        {
+          var i;
+          var list = document.getElementById("midi_device_list");
+          list.innerHTML = "";
+          midi_outputs = Array.from(midiAccess.outputs.values());
+          for(i=0; i<midi_outputs.length; i++)
+            list.innerHTML += "<option value='"+i+"'>"+midi_outputs[i].name+"</option>";
+          if(midi_outputs.length == 0)
+            list.innerHTML += "<option value='-1'>None Connected</option>";
+            
+          console.log(midi_outputs);
+            
+          //listen to everything
+          var midi_inputs = Array.from(midiAccess.inputs.values());
+          for(i=0; i<midi_inputs.length; i++)
+            midi_inputs[i].addEventListener('midimessage', midi_message_receive_callback);
+        });
+      }
+      
+      function midi_message_receive_callback(event)
+      {
+        var message = event.data;
+        var args = [];
+        var type = "";
+        var i;
+  
+        //this assumes event contains a complete sysex message.
+        //todo: properly parse the MIDI it incase it comes in a stream
+        if(message.length < 3) return;
+        if(message[0] != 0xF0) return;
+        if(message[1] != 0x00) return;
+        if(message[message.length-1] != 0xF7) return;
+        
+        var str_message = "";
+        
+        for(i=2; i<message.length-1; i++)
+          str_message += String.fromCharCode(message[i]);
+        
+        log(str_message, "receive_message")
+        var args = str_message.split(" ");
+        var message = args.shift();
+  
+        message_dispatch(message, args)
+      }
+      
+      function message_dispatch(message, args)
+      {
+        if(message == "/reply_zap_reg")
+          if(args.length == 2)
+            display_number(args[0], args[1])
+      }
+      
+      function robot_send_message(message, type_tag)
+      {
+        var i;
+        for(i=0; i<type_tag.length; i++)
+          message += " " + arguments[i+2];
+        
+        var hex_message = [0xF0, 0x00];
+        for(i=0; i<message.length; i++)
+          hex_message.push(message.charCodeAt(i));
+        hex_message.push(0xF7);
+          
+        if(midi_outputs.length > 0)
+          {
+            var device_index = document.getElementById("midi_device_list").value;
+            var device = null;
+            if(device_index >= 0)
+              device = midi_outputs[device_index];
+            
+            if(device)
+              device.send(hex_message);
+           }
+        log(message, "send_message");
+      }
+      
+      function get_parameter_data_register(caller)
+      {
+        return parseInt(caller.parentNode.parentNode.getAttribute("data-register"));
+      }
+      
+      function zap_get(caller)
+      {
+        var register = get_parameter_data_register(caller);
+        //display_number(register, 100);
+        if(zap_id != 254)
+          robot_send_message("/zap_get", "ii", zap_id, register);
+      }
+      
+      function zap_set(caller)
+      {
+        var register = get_parameter_data_register(caller);
+        var val;
+        
+        if(caller.type == "checkbox")
+          val = caller.checked ? 1 : 0;
+        else
+          val = caller.value;
+        
+        if((caller.min && (val<parseFloat(caller.min))) || (caller.max && (val>parseFloat(caller.max))))
+          {
+            log("value must be between " +caller.min+ " and " +caller.max+ " inclusive", "error_message");
+            
+            zap_get(caller);
+            return;
+          }
+        if(should_do_now)
+          {
+            robot_send_message("/zap_set", "iif", zap_id, register, val);
+            zap_get(caller);
+          }
+        else
+          {
+            robot_send_message("/zap_prepare", "iif", zap_id, register, val);
+          }
+      }
+      
+      function zap_factory_reset()
+      {
+        robot_send_message("/zap_factory_reset", "i", zap_id);
+        setTimeout(populate_all_fields, 500);
+      }
+
+      function zap_reboot()
+      {
+        robot_send_message("/zap_reboot", "i", zap_id);
+      }
+      
+      function zap_do_prepared()
+      {
+        robot_send_message("/zap_do_prepared", "i", zap_id);
+        //robot_send_message("/get_firmware", "");
+      }
+      
+      function zap_ping()
+      {
+        robot_send_message("/zap_ping", "i", zap_id);
+      }
+
+      async function zap_scan_ids()
+      {
+        robot_send_message("/zap_scan_ids", "");
+      }
+      
+      function zap_scan_baud_and_id()
+      {
+        robot_send_message("/zap_scan_id_baud", "");
+      }
+      
+      function magnet_on(strength)
+      {
+        strenght = parseFloat(strength);
+        robot_send_message("/magnet_on", "f", strength);
+      }
+
+      function magnet_off()
+      {
+        robot_send_message("/magnet_off", "");
+        document.getElementById("magnet_slider").value = 0;
+      }
+      
+      function display_number(register, val)
+      {
+        register = parseInt(register).toString(16).toUpperCase();
+        var param = document.querySelector("div[data-register='0x"+register+"']");
+        if(param)
+          {
+            var value_div = param.querySelector(".value_div");
+            var input     = value_div.querySelector("input");
+            if(input)
+              {
+                if(input.type == "checkbox")
+                  input.checked = (parseInt(val) != 0);
+                else
+                  input.value = val;
+              }
+            else
+             {
+               input = value_div.querySelector("select");
+               if(input)
+                 {
+                   input.value = parseInt(val);
+                 }
+             }
+          }
+      }
+      
+      function populate_all_fields()
+      {
+        var i;
+        var params = document.querySelectorAll(".params_div .param_container");
+        for(i=0; i<params.length; i++)
+          {
+            var get_div = params[i].querySelector(".get_div");
+            var button  = get_div.querySelector("button");
+            button.click();
+          }
+      }
+      
+      function populate_zap_ids()
+      {
+        var i;
+        var select_element = document.getElementById("zap_id_div");
+        for(i=0; i<254; i++)
+          select_element.innerHTML += "<option value='"+i+"'>"+i+"</option>";
+        select_element.innerHTML += "<option value='254'>broadcast</option>";
+      }
+  
+      function zap_raw_to_baud_bps(raw)
+      {
+        var result = 0;
+  
+        if(raw <= 249)
+          result = 2000000 / (raw + 1);
+        else switch(raw)
+          {
+            case 250: result = 2250000; break;
+            case 251: result = 2500000; break;
+            case 252: result = 3000000; break;
+            default: break;
+          }
+  
+        return Math.floor(result);
+      }
+
+      function populate_bauds()
+      {
+        var i = 0;
+        var select_element = document.getElementById("baud_div");
+        for(i=249; i>=0; i--)
+          {
+            var baud = zap_raw_to_baud_bps(i);
+            select_element.innerHTML += "<option value='"+baud+"'>"+baud+"</option>";
+          }
+        for(i=250; i<=252; i++)
+          {
+            var baud = zap_raw_to_baud_bps(i);
+            select_element.innerHTML += "<option value='"+baud+"'>"+baud+"</option>";
+          }
+      }
+      function set_zap_id(val)
+      {
+        zap_id = val;
+        populate_all_fields();
+      }
+
+      function log(message, class_name)
+      {
+        if(should_log)
+          {
+            message = "<span class='"+class_name+"'>" + message + "</span><br>";
+            var log = document.getElementById("log");
+            log.innerHTML += message;
+            log.scrollTop = log.scrollHeight;
+          }
+      }
+      
+      function clear_log()
+      {
+        document.getElementById("log").innerHTML = "";
+      }
+    </script>
+  </head>
+
+
+  <body onload="init_page()">
+    <div class="page_div">
+      <div class="top_buttons_div">
+        <div class="dropdown_div">
+          <b>Zap ID</b>
+          <select id="zap_id_div" onchange="set_zap_id(this.value)"></select>
+        </div>
+        <div class="dropdown_div">
+          <div class="select_div">
+            <b>Mode</b>
+            <select onchange="should_do_now=parseInt(this.value);">
+              <option value='1'>Do Now</option>
+              <option value='0'>Prepare To Do</option>
+            </select>
+          </div>
+        </div>
+        <div class="dropdown_div">
+          <div class="select_div">
+            <b>MIDI Device</b>
+            <select id="midi_device_list">
+            </select>
+          </div>
+        </div>
+        <div class="button_div">
+          <div class="button_container"><button type="button" onclick="zap_factory_reset()">Factory Reset</button></div>
+          <div class="button_container"><button type="button" onclick="zap_do_prepared()">Do Prepared</button></div>
+          <div class="button_container"><button type="button" onclick="zap_ping()">Ping</button></div>
+          <div class="button_container"><button type="button" onclick="zap_scan_ids()">Scan IDs</button></div>
+          <div class="button_container"><button type="button" onclick="zap_scan_baud_and_id()">Scan Baud+ID</button></div>
+          <div class="button_container"><button type="button" onclick="zap_reboot()">Reboot</button></div>
+        </div>
+      </div><!--top_buttons_div-->
+     
+      <hr>
+
+      <div class="params_div">
+        <div class="param_container" data-register="0x0">
+          <div class="label_div">MODEL_NUMBER</div>
+          <div class="get_div"><button type="button" onclick="zap_get(this);">&nbsp;</button></div>
+          <div class="value_div"><input type="number" onchange="zap_set(this);" disabled></div>
+        </div>
+        <div class="param_container" data-register="0x2">
+          <div class="label_div">FIRMWARE_VERSION</div>
+          <div class="get_div"><button type="button" onclick="zap_get(this);">&nbsp;</button></div>
+          <div class="value_div"><input type="number" onchange="zap_set(this);" disabled></div>
+        </div>
+        <div class="param_container" data-register="0x3">
+          <div class="label_div">ID</div>
+          <div class="get_div"><button type="button" onclick="zap_get(this);">&nbsp;</button></div>
+          <div class="value_div"><input type="number" onchange="zap_set(this);" min="0" max="253" step="1"></div>
+        </div>
+        <div class="param_container" data-register="0x4">
+          <div class="label_div">BAUD_RATE</div>
+          <div class="get_div"><button type="button" onclick="zap_get(this);">&nbsp;</button></div>
+          <div class="value_div">
+            <select onchange="zap_set(this);">
+              <option value="115200">115200</option>
+              <option value="57600">57600</option>
+              <option value="57600">38600</option>
+              <option value="19200">19200</option>
+              <option value="9600">9600</option>
+            </select>
+          </div>
+        </div>
+        <div class="param_container" data-register="0x5">
+          <div class="label_div">RETURN_DELAY_USEC</div>
+          <div class="get_div"><button type="button" onclick="zap_get(this);">&nbsp;</button></div>
+          <div class="value_div"><input type="number" onchange="zap_set(this);"></div>
+        </div>
+        <div class="param_container" data-register="0x6">
+          <div class="label_div">MIN_POSITION</div>
+          <div class="get_div"><button type="button" onclick="zap_get(this);">&nbsp;</button></div>
+          <div class="value_div"><input type="number" onchange="zap_set(this);"></div>
+        </div>
+        <div class="param_container" data-register="0x8">
+          <div class="label_div">MAX_POSITION</div>
+          <div class="get_div"><button type="button" onclick="zap_get(this);">&nbsp;</button></div>
+          <div class="value_div"><input type="number" onchange="zap_set(this);"></div>
+        </div>
+        <div class="param_container" data-register="0xD">
+          <div class="label_div">MAX_VOLTAGE</div>
+          <div class="get_div"><button type="button" onclick="zap_get(this);">&nbsp;</button></div>
+          <div class="value_div"><input type="number" onchange="zap_set(this);"></div>
+        </div>
+        <div class="param_container" data-register="0xE">
+          <div class="label_div">MAX_FORCE</div>
+          <div class="get_div"><button type="button" onclick="zap_get(this);">&nbsp;</button></div>
+          <div class="value_div"><input type="number" onchange="zap_set(this);"></div>
+        </div>
+        <div class="param_container" data-register="0x10">
+          <div class="label_div">RETURN_LEVEL</div>
+          <div class="get_div"><button type="button" onclick="zap_get(this);">&nbsp;</button></div>
+          <div class="value_div">
+            <select onchange="zap_set(this);">
+              <option value="0">Ping Only</option>
+              <option value="1">Read Only</option>
+              <option value="2">Always</option>
+            </select>
+          </div>
+        </div>
+        <div class="param_container" data-register="0x11">
+          <div class="label_div">LED_ERROR</div>
+          <div class="get_div"><button type="button" onclick="zap_get(this);">&nbsp;</button></div>
+          <div class="value_div"><input type="number" onchange="zap_set(this);"></div>
+        </div>
+        <div class="param_container" data-register="0x12">
+          <div class="label_div">SHUTDOWN_ERROR</div>
+          <div class="get_div"><button type="button" onclick="zap_get(this);">&nbsp;</button></div>
+          <div class="value_div"><input type="number" onchange="zap_set(this);" ></div>
+        </div>
+        <div class="param_container" data-register="0x13">
+          <div class="label_div">TEMPERATURE</div>
+          <div class="get_div"><button type="button" onclick="zap_get(this);">&nbsp;</button></div>
+          <div class="value_div"><input type="number" onchange="zap_set(this);" disabled></div>
+        </div>
+        <div class="param_container" data-register="0x16">
+          <div class="label_div">RESOLUTION</div>
+          <div class="get_div"><button type="button" onclick="zap_get(this);">&nbsp;</button></div>
+          <div class="value_div">
+            <select onchange="zap_set(this);">
+              <option value="4096">4096</option>
+              <option value="2048">2048</option>
+              <option value="1024">1024</option>
+              <option value="512">512</option>
+            </select>
+          </div>
+        </div>
+        <div class="param_container" data-register="0x18">
+          <div class="label_div">CALIBRATED_MIN_POS</div>
+          <div class="get_div"><button type="button" onclick="zap_get(this);">&nbsp;</button></div>
+          <div class="value_div"><input type="number" onchange="zap_set(this);" disabled></div>
+        </div>
+        <div class="param_container" data-register="0x1A">
+          <div class="label_div">CALIBRATED_MAX_POS</div>
+          <div class="get_div"><button type="button" onclick="zap_get(this);">&nbsp;</button></div>
+          <div class="value_div"><input type="number" onchange="zap_set(this);" disabled></div>
+        </div>
+        <div class="param_container" data-register="0x1C">
+          <div class="label_div">CALIBRATED_CENTER_POS</div>
+          <div class="get_div"><button type="button" onclick="zap_get(this);">&nbsp;</button></div>
+          <div class="value_div"><input type="number" onchange="zap_set(this);"></div>
+        </div>
+        <div class="param_container" data-register="0x21">
+          <div class="label_div">ACCEL_RATE</div>
+          <div class="get_div"><button type="button" onclick="zap_get(this);">&nbsp;</button></div>
+          <div class="value_div"><input type="number" onchange="zap_set(this);"></div>
+        </div>
+        <div class="param_container" data-register="0x22">
+          <div class="label_div">DECEL_RATE</div>
+          <div class="get_div"><button type="button" onclick="zap_get(this);">&nbsp;</button></div>
+          <div class="value_div"><input type="number" onchange="zap_set(this);"></div>
+        </div>
+        <div class="param_container" data-register="0x25">
+          <div class="label_div">D_GAIN</div>
+          <div class="get_div"><button type="button" onclick="zap_get(this);">&nbsp;</button></div>
+          <div class="value_div"><input type="number" onchange="zap_set(this);"></div>
+        </div>
+        <div class="param_container" data-register="0x26">
+          <div class="label_div">I_GAIN</div>
+          <div class="get_div"><button type="button" onclick="zap_get(this);">&nbsp;</button></div>
+          <div class="value_div"><input type="number" onchange="zap_set(this);"></div>
+        </div>
+        <div class="param_container" data-register="0x27">
+          <div class="label_div">P_GAIN</div>
+          <div class="get_div"><button type="button" onclick="zap_get(this);">&nbsp;</button></div>
+          <div class="value_div"><input type="number" onchange="zap_set(this);"></div>
+        </div>
+        <div class="param_container" data-register="0x28">
+          <div class="label_div">MIN_POSITION_PW</div>
+          <div class="get_div"><button type="button" onclick="zap_get(this);">&nbsp;</button></div>
+          <div class="value_div"><input type="number" onchange="zap_set(this);"></div>
+        </div>
+        <div class="param_container" data-register="0x2A">
+          <div class="label_div">MAX_POSITION_PW</div>
+          <div class="get_div"><button type="button" onclick="zap_get(this);">&nbsp;</button></div>
+          <div class="value_div"><input type="number" onchange="zap_set(this);"></div>
+        </div>
+        <div class="param_container" data-register="0x2C">
+          <div class="label_div">CENTER_POSITION_PW</div>
+          <div class="get_div"><button type="button" onclick="zap_get(this);">&nbsp;</button></div>
+          <div class="value_div"><input type="number" onchange="zap_set(this);"></div>
+        </div>
+        <div class="param_container" data-register="0x32">
+          <div class="label_div">CENTER_DIFFERNCE</div>
+          <div class="get_div"><button type="button" onclick="zap_get(this);">&nbsp;</button></div>
+          <div class="value_div"><input type="number" onchange="zap_set(this);"></div>
+        </div>
+        <div class="param_container" data-register="0x34">
+          <div class="label_div">PUNCH_INITIAL_VALUE</div>
+          <div class="get_div"><button type="button" onclick="zap_get(this);">&nbsp;</button></div>
+          <div class="value_div"><input type="number" onchange="zap_set(this);"></div>
+        </div>
+        <div class="param_container" data-register="0x80">
+          <div class="label_div">FORCE_ENABLE</div>
+          <div class="get_div"><button type="button" onclick="zap_get(this);">&nbsp;</button></div>
+          <div class="value_div"><input type="checkbox" onchange="zap_set(this);"></div>
+        </div>
+        <div class="param_container" data-register="0x81">
+          <div class="label_div">LED_IS_ON</div>
+          <div class="get_div"><button type="button" onclick="zap_get(this);">&nbsp;</button></div>
+          <div class="value_div">
+            <select onchange="zap_set(this);">
+              <option value="1">OFF</option>
+              <option value="2">RED</option>
+              <option value="4">GREEN</option>
+              <option value="8">BLUE</option>
+            </select>
+          </div>
+        </div>
+        <div class="param_container" data-register="0x82">
+          <div class="label_div">COMPLIANCE_MARGIN_IN</div>
+          <div class="get_div"><button type="button" onclick="zap_get(this);">&nbsp;</button></div>
+          <div class="value_div"><input type="number" onchange="zap_set(this);"></div>
+        </div>
+        <div class="param_container" data-register="0x83">
+          <div class="label_div">COMPLIANCE_MARGIN_OUT</div>
+          <div class="get_div"><button type="button" onclick="zap_get(this);">&nbsp;</button></div>
+          <div class="value_div"><input type="number" onchange="zap_set(this);"></div>
+        </div>
+        <div class="param_container" data-register="0x86">
+          <div class="label_div">GOAL_POSITION</div>
+          <div class="get_div"><button type="button" onclick="zap_get(this);">&nbsp;</button></div>
+          <div class="value_div"><input type="number" onchange="zap_set(this);"></div>
+        </div>
+        <div class="param_container" data-register="0x88">
+          <div class="label_div">GOAL_SPEED</div>
+          <div class="get_div"><button type="button" onclick="zap_get(this);">&nbsp;</button></div>
+          <div class="value_div"><input type="number" onchange="zap_set(this);"></div>
+        </div>
+        <div class="param_container" data-register="0x8C">
+          <div class="label_div">PRESENT_POSITION</div>
+          <div class="get_div"><button type="button" onclick="zap_get(this);">&nbsp;</button></div>
+          <div class="value_div"><input type="number" onchange="zap_set(this);" disabled></div>
+        </div>
+        <div class="param_container" data-register="0x8E">
+          <div class="label_div">PRESENT_FORCE</div>
+          <div class="get_div"><button type="button" onclick="zap_get(this);">&nbsp;</button></div>
+          <div class="value_div"><input type="number" onchange="zap_set(this);" disabled></div>
+        </div>
+        <div class="param_container" data-register="0x90">
+          <div class="label_div">PRESENT_SPEED</div>
+          <div class="get_div"><button type="button" onclick="zap_get(this);">&nbsp;</button></div>
+          <div class="value_div"><input type="number" onchange="zap_set(this);" disabled></div>
+        </div>
+        <div class="param_container" data-register="0x92">
+          <div class="label_div">PRESENT_VOLTAGE</div>
+          <div class="get_div"><button type="button" onclick="zap_get(this);">&nbsp;</button></div>
+          <div class="value_div"><input type="number" onchange="zap_set(this);" disabled></div>
+        </div>
+        <div class="param_container" data-register="0x94">
+          <div class="label_div">PENDING_INSTRUCTION</div>
+          <div class="get_div"><button type="button" onclick="zap_get(this);">&nbsp;</button></div>
+          <div class="value_div"><input type="checkbox" onchange="zap_set(this);" disabled></div>
+        </div>
+        <div class="param_container" data-register="0x96">
+          <div class="label_div">IS_MOVING</div>
+          <div class="get_div"><button type="button" onclick="zap_get(this);">&nbsp;</button></div>
+          <div class="value_div"><input type="checkbox" onchange="zap_set(this);" disabled></div>
+        </div>
+        <div class="param_container" data-register="0x97">
+          <div class="label_div">EEPROM_IS_LOCKED</div>
+          <div class="get_div"><button type="button" onclick="zap_get(this);">&nbsp;</button></div>
+          <div class="value_div"><input type="checkbox" onchange="zap_set(this);"></div>
+        </div>
+        <div class="param_container" data-register="0x98">
+          <div class="label_div">PUNCH</div>
+          <div class="get_div"><button type="button" onclick="zap_get(this);">&nbsp;</button></div>
+          <div class="value_div"><input type="number" onchange="zap_set(this);"></div>
+        </div>
+        <div class="param_container" data-register="0x9A">
+          <div class="label_div">END_COMPLIANCE_MARGIN</div>
+          <div class="get_div"><button type="button" onclick="zap_get(this);">&nbsp;</button></div>
+          <div class="value_div"><input type="number" onchange="zap_set(this);"></div>
+        </div>
+      </div><!--params_div-->
+      <hr>
+      
+      <div class="magnet_div">
+        Magnet Strength: <input type="range" min="-1" max="1" step="0.01" value="0" id="magnet_slider" onchange="magnet_on(this.value)">
+        <button type="button" onclick="magnet_off();">Magnet off</button>
+      </div><!--magnet_div-->
+      
+      <hr>
+      
+      
+      <div class="log_container_div">
+        <div class="log_outer_div"><div class="log_div" id="log"></div></div>
+        <div class="button_div">
+          <input type="checkbox" onclick="should_log=this.checked">Log</input><br>
+          <button type="button" onclick="clear_log()">clear</button>
+        </div>
+      </div>
+    </div><!--page_div-->
+  </body>
+
+
+</html>

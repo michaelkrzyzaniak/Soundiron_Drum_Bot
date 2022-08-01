@@ -56,7 +56,11 @@ void setup()
   led_set (LED_GREEN, LED_ON);
 
   while(!striker_init(ZAP_ID))
-    delay(1000);
+    {
+      delay(1000);
+      interface_run_loop();
+      /* in case baud needs to be configured*/
+    }
 }
 
 

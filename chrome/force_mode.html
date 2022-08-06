@@ -1,0 +1,325 @@
+<!doctype HTML>
+<html>
+  <head>
+    <style>
+       body
+         {
+           margin:0px; 
+           padding:0px; 
+           background-color:#66d;
+         }
+      .page_div
+        {
+           width:650px;
+           background-color:#CCC;
+           padding:10px;
+           margin:40px auto 40px auto;
+           font-family:'Verdana';
+           font-size:9pt;
+           border-radius:6px;
+           box-shadow:5px 5px 30px #222;
+        }
+      .top_buttons_div
+        {
+          margin:auto;
+        }
+      .top_buttons_div .dropdown_div
+        {
+          display:inline-block;
+        }
+      .top_buttons_div .button_div
+        {
+          margin: 10px auto auto auto;
+          font-size:0pt;
+        }
+      .top_buttons_div .button_div .button_container
+        {
+          display:inline-block;
+          width:20%;
+          text-align:center;
+          font-size:9pt;
+        }
+      .top_buttons_div .button_div .button_container button
+        {
+          font:inherit;
+          width:90%;
+        }
+      .log_container_div
+        {
+          margin:auto;
+          padding:10px;
+          font-size:0pt;
+        }
+      .log_container_div .button_div
+        {
+          display:inline-block;
+          width:15%;
+          height:12em;
+          font-size:9pt;
+          vertical-align:top;
+          text-align:right;
+        }
+      .log_container_div .button_div button
+        {
+          width:85%;
+          font-size:9pt;
+        }
+      .log_container_div .log_outer_div
+        {
+          background-color:white;
+          font-size:9pt;
+          color:#888;
+          display:inline-block;
+          width:85%;
+          vertical-align:top;
+        }
+      .log_container_div .log_div
+        {
+          margin:auto;
+          padding:10px;
+          overflow:auto;
+          height:12em;
+        }
+      #log .send_message
+        {
+          color:#888;
+        }
+      #log .receive_message
+        {
+          color:blue;
+        }
+      #log .error_message
+        {
+          color:#800;
+        }
+      .params_div
+        {
+           width:100%;
+           columns: 3 auto;
+           font-size:0px;
+        }
+      .param_container
+        {
+           width:90%;
+           padding:1px 5px 1px 5px;
+        }
+      .param_container div
+        {
+           display:inline-block;
+           vertical-align: middle;
+           margin:0px;
+           padding:0px;
+           font-size:9pt;
+        }
+      .param_container .label_div
+        {
+           width:5%;
+        }
+      .param_container .get_div
+        {
+           width:10%;
+           text-align:center;
+        }
+      .param_container .get_div button
+        {
+
+        }
+      .param_container .value_div
+        {
+          width:33%;
+        }
+      .param_container .value_div input, .param_container .value_div select
+        {
+           font:inherit;
+           width:200%;
+           margin:0px;
+        }
+    </style>
+    <script src="speedometer/widget.js"></script>
+    <script>
+      var should_log  = false;
+      var speedometer;
+      var midi_outputs  = [];
+      
+      function init_page()
+      {
+        populate_midi_device_list();
+        speedometer = new Speedometer_Widget("speedometer_canvas", "percent", "FORCE", Speedometer_Widget.STYLE_SPEEDOMETER, Speedometer_Widget.GOAL_TYPE_AT_LEAST);
+        speedometer.set_level_and_num_ranges(0, 100);
+        speedometer.set_goal(20);
+        speedometer.resume_updating();
+      }
+      
+      function populate_midi_device_list()
+      {
+        if(!navigator.requestMIDIAccess) return;
+        navigator.requestMIDIAccess({sysex: true}).then(function(midiAccess)
+        {
+          var i;
+          var list = document.getElementById("midi_device_list");
+          list.innerHTML = "";
+          midi_outputs = Array.from(midiAccess.outputs.values());
+          for(i=0; i<midi_outputs.length; i++)
+            list.innerHTML += "<option value='"+i+"'>"+midi_outputs[i].name+"</option>";
+          if(midi_outputs.length == 0)
+            list.innerHTML += "<option value='-1'>None Connected</option>";
+            
+          //listen to everything
+          var midi_inputs = Array.from(midiAccess.inputs.values());
+          for(i=0; i<midi_inputs.length; i++)
+            midi_inputs[i].addEventListener('midimessage', midi_message_receive_callback);
+        });
+      }
+      
+      function midi_message_receive_callback(event)
+      {
+        var message = event.data;
+        var args = [];
+        var type = "";
+        var i;
+  
+        //this assumes event contains a complete sysex message.
+        //todo: properly parse the MIDI it incase it comes in a stream
+        if(message.length < 3) return;
+        if(message[0] != 0xF0) return;
+        if(message[1] != 0x00) return;
+        if(message[message.length-1] != 0xF7) return;
+        
+        var str_message = "";
+        
+        for(i=2; i<message.length-1; i++)
+          str_message += String.fromCharCode(message[i]);
+        
+        log(str_message, "receive_message")
+        var args = str_message.split(" ");
+        var message = args.shift();
+  
+        message_dispatch(message, args);
+      }
+
+      function message_dispatch(message, args)
+      {
+        if(message == "/f")
+          if(args.length == 1)
+            {
+              speedometer.set_level(args[0], true, args[0], true)
+            }
+      }
+      
+      function robot_send_message(message, type_tag)
+      {
+        var i;
+        for(i=0; i<type_tag.length; i++)
+          message += " " + arguments[i+2];
+        
+        var hex_message = [0xF0, 0x00];
+        for(i=0; i<message.length; i++)
+          hex_message.push(message.charCodeAt(i));
+        hex_message.push(0xF7);
+          
+        if(midi_outputs.length > 0)
+          {
+            var device_index = document.getElementById("midi_device_list").value;
+            var device = null;
+            if(device_index >= 0)
+              device = midi_outputs[device_index];
+            
+            if(device)
+              device.send(hex_message);
+           }
+        log(message, "send_message");
+      }
+      
+      function get_parameter_data_register(caller)
+      {
+        return parseInt(caller.parentNode.parentNode.getAttribute("data-parameter"));
+      }
+
+      function display_number(parameter, val)
+      {
+        //parameter = parseInt(parameter).toString(16).toUpperCase();
+        var param = document.querySelector("div[data-parameter='"+parameter+"']");
+        if(param)
+          {
+            var value_div = param.querySelector(".value_div");
+            var input     = value_div.querySelector("input");
+            if(input)
+              {
+                if(input.type == "checkbox")
+                  input.checked = (parseInt(val) != 0);
+                else
+                  input.value = val;
+              }
+            else
+             {
+               input = value_div.querySelector("select");
+               if(input)
+                 {
+                   input.value = parseInt(val);
+                 }
+             }
+          }
+      }
+      
+      function log(message, class_name)
+      {
+        if(should_log)
+          {
+            message = "<span class='"+class_name+"'>" + message + "</span><br>";
+            var log = document.getElementById("log");
+            log.innerHTML += message;
+            log.scrollTop = log.scrollHeight;
+          }
+      }
+      
+      function clear_log()
+      {
+        document.getElementById("log").innerHTML = "";
+      }
+      
+      function strike_force_mode()
+      {
+        speedometer.set_level(0, true, 0, true);
+        force_percent = speedometer.get_goal();
+        midi_velocity = Math.round(force_percent * 127.0 / 100.0);
+        robot_send_message("/stream_force", "i", 1);
+        robot_send_message("/note_on", "ii", 72 /*MIDI_PITCH_C5*/, midi_velocity);
+      }
+      
+    </script>
+  </head>
+
+
+  <body onload="init_page()">
+    <div class="page_div">
+      <div class="top_buttons_div">
+        <div class="dropdown_div">
+        </div>
+        <div class="dropdown_div">
+          <div class="select_div">
+            <b>MIDI Device</b>
+            <select id="midi_device_list">
+            </select>
+          </div>
+        </div>
+      </div><!--top_buttons_div-->
+     
+      <hr>
+
+      <div class="canvas_div">
+        <canvas width="300" height="300" id="speedometer_canvas" style="display:block; margin:auto"></canvas>
+      </div>
+      <div style="margin:auto; text-align:center; position:relative; top:-70px;">
+        <button type="button" onclick="strike_force_mode()">strike</button>
+      </div>
+      <hr>
+      <div class="log_container_div">
+        <div class="log_outer_div"><div class="log_div" id="log"></div></div>
+        <div class="button_div">
+          <input type="checkbox" onclick="should_log=this.checked">Log</input><br>
+          <button type="button" onclick="clear_log()">clear</button>
+        </div>
+      </div>
+    </div><!--page_div-->
+  </body>
+</html>

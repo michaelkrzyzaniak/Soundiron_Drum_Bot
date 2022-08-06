@@ -23,9 +23,9 @@
      borderopacity="1.0"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
-     inkscape:zoom="1.2170079"
-     inkscape:cx="254.52716"
-     inkscape:cy="520.00322"
+     inkscape:zoom="1.0479116"
+     inkscape:cx="651.51375"
+     inkscape:cy="573.34202"
      inkscape:document-units="mm"
      inkscape:current-layer="layer1"
      inkscape:document-rotation="0"
@@ -1295,15 +1295,6 @@
        cy="155.72398"
        r="7.5" />
     <rect
-       style="fill:#ff0000;fill-opacity:1;stroke:none;stroke-width:0.264582"
-       id="rect5300"
-       width="3"
-       height="8"
-       x="181.6132"
-       y="144.22398"
-       ry="1.5"
-       rx="1.5" />
-    <rect
        style="fill:#00ffff;fill-opacity:1;stroke:none;stroke-width:0.264583"
        id="rect5302"
        width="4.5"
@@ -1345,5 +1336,26 @@
        cy="159.9482"
        rx="1.5"
        ry="1" />
+    <circle
+       style="fill:#ffcc00;fill-opacity:1;stroke:none;stroke-width:0.264583"
+       id="path5298-0"
+       cx="202.77065"
+       cy="155.17207"
+       r="7.5" />
+    <rect
+       style="fill:#ff0000;fill-opacity:1;stroke:none;stroke-width:0.264582"
+       id="rect5300-3"
+       width="3"
+       height="8"
+       x="201.27065"
+       y="143.67207"
+       ry="1.5"
+       rx="1.5" />
+    <circle
+       style="fill:#ff0000;fill-opacity:1;stroke:none;stroke-width:0.264583"
+       id="path5304-3"
+       cx="202.77065"
+       cy="155.17207"
+       r="1.7" />
   </g>
 </svg>

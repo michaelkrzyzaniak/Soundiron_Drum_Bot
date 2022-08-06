@@ -4,8 +4,10 @@
 /* returns 1 on success */
 int  striker_init(int zap_id);
 void striker_strike(float height /* 0 ~ 1*/);
-void striker_strike_force_mode(float force);
-void striker_kill();
+void striker_strike_force_mode(float force /* 0 ~ 1*/);
+void striker_lower_and_wait_with_magnet_off_5_seconds();
+void striker_set_should_stream_motor_force(int should_stream);
+void striker_kill(int with_error);
 int  striker_is_busy();
 
 #endif //STRIKER

@@ -40,14 +40,24 @@ void interface_run_loop()
 /*---------------------------------------------------*/
 void interface_note_on_callback(midi_channel_t chan, midi_pitch_t pitch, midi_velocity_t vel)
 {
-  /* MIDI_CHANNEL_1 = 0 */
+  float value = vel / 127.0;
 
-  if(pitch == MIDI_PITCH_C_4)
+  switch(pitch)
     {
-      float height = vel / 127.0;
-      striker_strike(height);
-    }
+      case MIDI_PITCH_C_4:
+        striker_strike(value);
+        break;
+        
+      case MIDI_PITCH_C_5:
+        striker_strike_force_mode(value);
+        break;
 
+      case MIDI_PITCH_C_6:
+        striker_lower_and_wait_with_magnet_off_5_seconds();
+        
+      default:
+        break;
+    }
 }
 
 /*---------------------------------------------------*/
@@ -60,7 +70,7 @@ void interface_note_off_callback(midi_channel_t chan, midi_pitch_t pitch, midi_v
 void interface_mode_change_callback (midi_channel_t chan, midi_mode_t  mode , uint8_t arg)
 {
   if(mode == MIDI_MODE_ALL_SOUND_OFF)
-    striker_kill();
+    striker_kill(0);
 }
 
 /*-----------------------------------------------------*/
@@ -253,11 +263,24 @@ void interface_dispatch(void* self, char* message, robot_arg_t args[], int num_a
             robot_send_message(robot_reply_aok);
           }
         break;
+
+      /******************************/
+      case robot_hash_should_stream_force:
+        if(num_args == 1)
+          {
+            int should_stream = robot_arg_to_int(&args[0]);
+            striker_set_should_stream_motor_force(should_stream);
+            robot_send_message(robot_reply_aok);
+          }
+        break;
         
       /******************************/
       case robot_hash_note_on:
-        if(num_args == 1)
+        if(num_args == 2)
           {
+            int note  = robot_arg_to_int(&args[0]);
+            int vel   = robot_arg_to_int(&args[1]);
+            interface_note_on_callback(MIDI_CHANNEL_1, note, vel);
             robot_send_message(robot_reply_aok);
           }
         break;
@@ -266,6 +289,8 @@ void interface_dispatch(void* self, char* message, robot_arg_t args[], int num_a
       case robot_hash_note_off:
         if(num_args == 1)
           {
+            int note = robot_arg_to_int(&args[0]);
+            interface_note_off_callback(MIDI_CHANNEL_1, note, 0);
             robot_send_message(robot_reply_aok);
           }
         break;
@@ -274,6 +299,7 @@ void interface_dispatch(void* self, char* message, robot_arg_t args[], int num_a
       case robot_hash_all_notes_off:
         if(num_args == 0)
           {
+            interface_mode_change_callback (MIDI_CHANNEL_1, MIDI_MODE_ALL_SOUND_OFF, 0);
             robot_send_message(robot_reply_aok);
           }
         break;

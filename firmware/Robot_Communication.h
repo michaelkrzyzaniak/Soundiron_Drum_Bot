@@ -38,6 +38,7 @@ typedef enum robot_message_hash_enum
 
   robot_hash_electromagnet_on            = 3756831744,
   robot_hash_electromagnet_off           = 3716363630,
+  robot_hash_should_stream_force         = 348492820,
   
   robot_hash_note_on                     = 2186442148,
   robot_hash_note_off                    = 3433114442,
@@ -46,7 +47,7 @@ typedef enum robot_message_hash_enum
   robot_hash_reply_firmware_version      = 857564406,
   robot_hash_aok                         = 2085472399,
   robot_hash_error                       = 3342388946,
-    
+  robot_hash_reply_streaming_force       = 5858988,
 }robot_message_hash_t;
 
 
@@ -65,6 +66,8 @@ typedef enum robot_message_hash_enum
 #define robot_cmd_electromagnet_on            "/magnet_on %f"            //strength -1 ~ 1
 #define robot_cmd_electromagnet_off           "/magnet_off"              //
 
+#define robot_cmd_should_stream_force         "/stream_force %i"         //0 or 1 (false or true)
+
 #define robot_cmd_get_firmware_version        "/get_firmware"            //
 #define robot_cmd_note_on                     "/note_on %i %i"           //
 #define robot_cmd_note_off                    "/note_off %i %i"          //
@@ -76,6 +79,8 @@ typedef enum robot_message_hash_enum
 #define robot_reply_zap_register              "/reply_zap_reg %i %f"
 #define robot_reply_zap_id                    "/reply_zap_id %i %i"    //id, baud
 
+#define robot_reply_streaming_force           "/f %f"    //percent of motor force
+
 /*---------------------------------------------------*/
 typedef void  (*robot_message_received_callback)(void* self, char* message, robot_arg_t args[], int num_args);
 
@@ -86,11 +91,11 @@ typedef void  (*robot_message_received_callback)(void* self, char* message, robo
 #endif
 
 #if defined  __APPLE__
-#define ROBOT_MIDI_DEVICE_NAME "Professor Plucky"
+#define ROBOT_MIDI_DEVICE_NAME "Soundiron Bot"
 
 #elif defined  __linux__
 //cat /proc/asound/cards for a list of cards -- I guess Linux dosen't like the space in the name?
-#define ROBOT_MIDI_DEVICE_NAME "hw:Plucky"
+#define ROBOT_MIDI_DEVICE_NAME "hw:Bot"
 #endif
 
 #if defined __ROBOT_MIDI_HOST__

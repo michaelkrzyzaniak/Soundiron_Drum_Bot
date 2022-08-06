@@ -1,0 +1,11 @@
+<html>
+  <canvas width="300" height="300" id="speedometer_canvas" style="display:block; margin:auto"></canvas>
+  <input oninput="speedometer.set_level(this.value, false, this.value, true)" type="range" min="0" max="100" step="0.0001" value="0" />
+  
+  <script src="widget.js"></script> 
+  <script>
+    var speedometer = new Speedometer_Widget("speedometer_canvas", "percent", "FORCE", Speedometer_Widget.STYLE_SPEEDOMETER, Speedometer_Widget.GOAL_TYPE_AT_LEAST);
+    speedometer.set_level_and_num_ranges(0, 100);
+    speedometer.resume_updating();
+  </script>
+</html>

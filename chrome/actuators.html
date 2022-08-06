@@ -136,7 +136,7 @@
         }
     </style>
     <script>
-      var should_log  = false;
+      var should_log  = true;
       zap_id      = 0;
       should_do_now = 1;
       midi_outputs  = [];
@@ -705,7 +705,7 @@
       <div class="log_container_div">
         <div class="log_outer_div"><div class="log_div" id="log"></div></div>
         <div class="button_div">
-          <input type="checkbox" onclick="should_log=this.checked">Log</input><br>
+          <input type="checkbox" onclick="should_log=this.checked" checked>Log</input><br>
           <button type="button" onclick="clear_log()">clear</button>
         </div>
       </div>

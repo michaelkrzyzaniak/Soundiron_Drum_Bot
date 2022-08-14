@@ -6,10 +6,10 @@
 
 #include <Arduino.h>
 
-#define  STRIKER_TIMER_INTERVAL             50 // ms
+#define  STRIKER_TIMER_INTERVAL              50 // ms
 #define  STRIKER_TIMEOUT_TIME             10000 // ms
-#define  STRIKER_WAITING_SILENCE_TIME     1000 // ms
-#define  STRIKER_RELEASE_TIME              100 // ms
+#define  STRIKER_WAITING_SILENCE_TIME      1000 // ms
+#define  STRIKER_RELEASE_TIME               100 // ms
 
 typedef enum striker_state_enum
 {

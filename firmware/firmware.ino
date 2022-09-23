@@ -6,6 +6,8 @@
  * External Libraries: None
 */
 
+//#define DEBUG_MODE 1
+
 #include "MMap.h"
 #include "Interface.h"
 #include "Mighty_Zap.h"
@@ -55,12 +57,16 @@ void setup()
   robot_send_message("zap baud %f", (float)zap_serial_baud);
   led_set (LED_GREEN, LED_ON);
 
+#ifndef DEBUG_MODE
   while(!striker_init(ZAP_ID))
     {
       delay(1000);
       interface_run_loop();
       /* in case baud needs to be configured*/
     }
+#else
+    striker_init(ZAP_ID); 
+#endif
 }
 
 

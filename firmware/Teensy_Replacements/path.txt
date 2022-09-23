@@ -1,9 +1,0 @@
-Replace the file at
-
-/Applications/Teensyduino.app/Contents/Java/hardware/teensy/avr/cores/teensy3/usb_desc.h
-
-with 
-
-usb_desc.h
-
-in this directory. That will make the Teensy show up as a MIDI device called "Soundiron Bot" and not "Teensy MIDI".

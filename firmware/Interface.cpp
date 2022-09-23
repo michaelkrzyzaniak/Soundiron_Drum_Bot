@@ -40,12 +40,22 @@ void interface_run_loop()
 /*---------------------------------------------------*/
 void interface_note_on_callback(midi_channel_t chan, midi_pitch_t pitch, midi_velocity_t vel)
 {
-  float value = vel / 127.0;
+  /* vel will be 1-127 (not 0-127) */
+  float value = (vel-1) / 126.0;
+  if(value < 0) value = 0;
 
   switch(pitch)
     {
+      case MIDI_PITCH_B_3:
+        striker_set_calibrated_bot_pos(value);
+        break;
+  
       case MIDI_PITCH_C_4:
         striker_strike(value);
+        break;
+
+      case MIDI_PITCH_Db_4:
+        striker_set_calibrated_top_pos(value);
         break;
         
       case MIDI_PITCH_C_5:

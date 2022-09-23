@@ -24,16 +24,19 @@ typedef enum striker_state_enum
   STRIKER_WAITING_5_SECS        , 
 }striker_state_t;
 
-striker_state_t striker_state            = STRIKER_IDLE;
-int             striker_zap_max_position = 4000; //
-int             striker_zap_id           = 0; // any will respond to id 0;
-float           pending_retract_position = 0;
-float           pending_retract_force    = 0;
-float           striker_max_force        = 0;
-float           striker_filtered_force   = 0;
-int             striker_clear_next_force = 0;
-int             striker_state_timer      = 0;
-int             striker_stream_force     = 0;
+striker_state_t striker_state              = STRIKER_IDLE;
+int             striker_zap_max_extension  = 4000; //
+int             striker_zap_id             = 0; // any will respond to id 0;
+float           pending_retract_position   = 0;
+float           pending_retract_force      = 0;
+float           striker_max_force          = 0;
+float           striker_filtered_force     = 0;
+int             striker_clear_next_force   = 0;
+int             striker_state_timer        = 0;
+int             striker_stream_force       = 0;
+float           striker_calibrated_bot_pos = 3770;
+float           striker_calibrated_top_pos = 1480;
+
 IntervalTimer   striker_timer;
 
 void striker_run_loop();
@@ -53,7 +56,11 @@ int striker_init  (int zap_id /*ignore this*/)
     }
 
   led_set (LED_RED, LED_OFF);
-  striker_zap_max_position = (int)result;
+  striker_zap_max_extension = striker_calibrated_bot_pos = (int)result;
+
+  striker_set_calibrated_bot_pos((20-1) / 126.0); //MIDI VEL 20
+  striker_set_calibrated_top_pos((80-1) / 126.0); //MIDI VEL 80
+  
   striker_timer.begin(striker_run_loop, STRIKER_TIMER_INTERVAL * 1000 /*microsecs*/);
 
   return 1;
@@ -63,6 +70,33 @@ int striker_init  (int zap_id /*ignore this*/)
 float striker_scalef(float x, float in_min, float in_max, float out_min, float out_max)
 {
   return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
+
+/*----------------------------------------------------------------*/
+void striker_set_calibrated_bot_pos(float pos)
+{
+  pos = (pos > 1) ? 1 : (pos < 0) ? 0 : pos;
+  striker_calibrated_bot_pos = striker_scalef(pos, 0.0, 1.0, striker_zap_max_extension,  0.0);
+}
+
+/*----------------------------------------------------------------*/
+float striker_get_calibrated_bot_pos()
+{
+  return striker_scalef(striker_calibrated_bot_pos, striker_zap_max_extension, 0.0, 0.0, 1.0);
+}
+
+
+/*----------------------------------------------------------------*/
+void striker_set_calibrated_top_pos(float pos)
+{
+  pos = (pos > 1) ? 1 : (pos < 0) ? 0 : pos;
+  striker_calibrated_top_pos = striker_scalef(pos, 0.0, 1.0, striker_zap_max_extension,  0.0); 
+}
+
+/*----------------------------------------------------------------*/
+float striker_get_calibrated_top_pos()
+{
+  return striker_scalef(striker_calibrated_top_pos, striker_zap_max_extension, 0.0, 0.0, 1.0);
 }
 
 /*----------------------------------------------------------------*/
@@ -78,7 +112,7 @@ float striker_scale_force_out(float force_percent)
 }
 
 /*----------------------------------------------------------------*/
-float striker_force_mode_update_filtered_force()
+void striker_force_mode_update_filtered_force()
 {
   float force;
   zap_error_t error;
@@ -237,7 +271,7 @@ void striker_generic_start_action()
   led_set (LED_YELLOW, LED_OFF);
   led_set (LED_RED, LED_OFF);
   zap_set (striker_zap_id, ZAP_REGISTER_GOAL_SPEED   , 1023, 0);
-  zap_set (striker_zap_id, ZAP_REGISTER_GOAL_POSITION, striker_zap_max_position, 0);
+  zap_set (striker_zap_id, ZAP_REGISTER_GOAL_POSITION, striker_zap_max_extension, 0);
 }
 
 /*----------------------------------------------------------------*/
@@ -257,9 +291,17 @@ void striker_strike(float height /* 0 ~ 1*/)
     return;
 
   height = (height > 1) ? 1 : (height < 0) ? 0 : height;
-  height *= striker_zap_max_position;
-  height = striker_zap_max_position - height;
-  pending_retract_position = height;
+  
+  //height *= striker_zap_max_extension;
+  //height = striker_zap_max_extension - height;
+  height = striker_scalef(height, 0.0, 1.0, striker_calibrated_bot_pos, striker_calibrated_top_pos);
+  pending_retract_position = round(height);
+
+
+//TESTING ONLY!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  //robot_send_message("retract height %f %f %f", striker_calibrated_bot_pos, striker_calibrated_top_pos, pending_retract_position);
+  //return;
+//END TESTING ONLY!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
   striker_generic_start_action();
   striker_state = STRIKER_EXTENDING;
